@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hill-climbing"
-version = "0.1.0"
+version = "0.1.1"
 description = "A python package for ensembling machine learning predictions using hill climbing optimization"
 readme = "README.md"
 
@@ -23,16 +23,11 @@ license = { text = "Apache Software License 2.0" }
 
 keywords = [
     "machine-learning",
-    "ensemble",
-    "optimization",
     "hill-climbing",
-    "scikit-learn",
-    "numpy",
-    "pandas"
+    "optimization"
 ]
 
 classifiers = [
-    "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
@@ -53,15 +48,6 @@ dependencies = [
     "numpy>=1.19.0",
     "pandas>=1.0.0",
     "scikit-learn>=0.24.0",
-]
-
-[project.optional-dependencies]
-dev = [
-    "pytest>=6.0",
-    "black>=22.0",
-    "isort>=5.0",
-    "flake8>=4.0",
-    "mypy>=0.900",
 ]
 
 [project.urls]
