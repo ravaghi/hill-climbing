@@ -62,7 +62,7 @@ test_preds = climber_cv.predict(X_test)
 | `objective` | str | - | Either "maximize" or "minimize" the evaluation metric |
 | `eval_metric` | callable | - | The evaluation metric function to optimize |
 | `allow_negative_weights` | bool | False | Whether to allow negative weights. Note that allowing negative weights increases computation time, and in some cases may lead to overfitting |
-| `precision` | float | 0.001 | Controls the step size when trying new weights. Lower values will lead to higher computation times  |
+| `precision` | float | 0.01 | Controls the step size when trying new weights. Lower values will lead to higher computation times  |
 | `starting_model` | str | "best" | Starting model selection strategy ("best", "random", or one of the column names in `X`) |
 | `score_decimal_places` | int | 3 | Number of decimal places for score display |
 | `random_state` | int | 42 | Random seed for reproducibility |
