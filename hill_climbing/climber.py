@@ -8,7 +8,7 @@ import numpy as np
 import random
 import time
 
-from .utils import create_cli_bar_chart
+from .utils import create_cli_bar_chart, COLORS
 
 
 class Climber(ABC):
@@ -17,7 +17,7 @@ class Climber(ABC):
         objective: str,
         eval_metric: Callable,
         allow_negative_weights: bool = False,
-        precision: float = 0.001,
+        precision: float = 0.01,
         starting_model: str = "best",
         score_decimal_places: int = 3,
         random_state: int = 42,
@@ -80,7 +80,8 @@ class Climber(ABC):
         }])
 
         if self.verbose:
-            print(f"║{0:^11}║{first_model:^32}║{coefs[0]:^10.{self._weight_decimal_places}f}║{initial_score:^15.{self._score_decimal_places}f}║{'-':^15}║{'-':^10}║")
+            color = COLORS.GREEN if coefs[0] >= 0 else COLORS.RED
+            print(f"   {color}{iteration:>{self.iter_width}}   {first_model:<{self.model_width}}   {coefs[0]:>{self.weight_width}.{self._weight_decimal_places}f}   {initial_score:>{self.score_width}.{self._score_decimal_places}f}     {'-':>{self.improvement_width}}     {'-':>{self.time_width}}{COLORS.END}")
 
         while not stop_climbing and remaining_oof_preds.shape[1] > 0:
             start_time_iter = time.time()
@@ -116,7 +117,8 @@ class Climber(ABC):
                 improvement = abs(current_score - last_score)
                 improvement_str = f"{improvement:.{self._score_decimal_places}f}"
                 if self.verbose:
-                    print(f"║{iteration:^11}║{best_model:^32}║{best_weight:^10.{self._weight_decimal_places}f}║{current_score:^15.{self._score_decimal_places}f}║{improvement_str:^15}║{iter_time:^10.2f}║")
+                    color = COLORS.GREEN if best_weight >= 0 else COLORS.RED
+                    print(f"   {color}{iteration:>{self.iter_width}}   {best_model:<{self.model_width}}   {best_weight:>{self.weight_width}.{self._weight_decimal_places}f}   {current_score:>{self.score_width}.{self._score_decimal_places}f}     {improvement_str:>{self.improvement_width}}     {iter_time:>{self.time_width}.2f}{COLORS.END}")
 
                 last_score = current_score
                 self.history = pd.concat([
@@ -199,46 +201,53 @@ class Climber(ABC):
         if not self.verbose:
             return
 
-        table_width = 100
-        print(f"╔{'═' * (table_width-2)}╗")
-        print(f"║{'Configuration':^{table_width-2}}║")
-        print(f"╚{'═' * (table_width-2)}╝")
-
         info = [
-            ("Metric", self.eval_metric.__name__),
-            ("Objective", self.objective),
-            ("Precision", self.precision),
-            ("Allow negative weights", self.allow_negative_weights),
-            ("Starting model", self.starting_model),
-            ("Number of parallel jobs", self.n_jobs),
-            ("Number of models", len(model_scores))
+            ("Metric:", self.eval_metric.__name__),
+            ("Objective:", self.objective),
+            ("Precision:", self.precision),
+            ("Allow negative weights:", self.allow_negative_weights),
+            ("Starting model:", self.starting_model),
+            ("Number of parallel jobs:", self.n_jobs),
+            ("Number of models:", len(model_scores))
         ]
-
+        
+        print(f"{COLORS.BOLD}{COLORS.BLUE}Configuration{COLORS.END}\n")
+        longest_label = max(len(label) for label, _ in info) + 5
         for label, value in info:
-            label_text = f" {label}"
-            value_text = str(value)
-            available_width = table_width - 2 - len(label_text) - 1
-            dots = "." * (available_width - len(value_text))
-            print(f"{label_text} {dots} {value_text}")
+            print(f"   {label:<{longest_label}} {value}")
 
-        print(f"╔{'═' * 31}╦{'═' * 11}╦{'═' * 54}╗")
-        print(f"║{'Model':^31}║{'Score':^11}║{'Performance Bar':^54}║")
-        print(f"╠{'═' * 31}╬{'═' * 11}╬{'═' * 54}╣")
+        print(f"\n\n{COLORS.BOLD}{COLORS.BLUE}Models{COLORS.END}\n")
+        max_model_length = max(len(model) for model in model_scores.keys())
+        
+        best_model = max(model_scores.items(), key=lambda x: x[1] if self.objective == "maximize" else -x[1])[0]
         for line in create_cli_bar_chart(model_scores, self.objective, self._score_decimal_places):
             parts = line.split(' | ')
             if len(parts) == 3:
                 model, score, bar = parts
-                bar_padded = bar + ' ' * (54 - len(bar))
-                print(f"║{model:^31}║{score:^11}║{bar_padded}║")
-        print(f"╚{'═' * 31}╩{'═' * 11}╩{'═' * 54}╝")
+                if model == best_model:
+                    print(f"   {COLORS.GREEN}{model:<{max_model_length}} {score:>10} {bar} (best){COLORS.END}")
+                else:
+                    print(f"   {model:<{max_model_length}} {score:>10} {bar}")
 
-        print(f"\n\n╔{'═' * (table_width-2)}╗")
-        print(f"║{'Running Hill Climbing':^{table_width-2}}║")
-        print(f"╚{'═' * (table_width-2)}╝")
+        print(f"\n\n{COLORS.BOLD}{COLORS.BLUE}Running Hill Climbing{COLORS.END}\n")
 
-        print(f"╔{'═' * 11}╦{'═' * 32}╦{'═' * 10}╦{'═' * 15}╦{'═' * 15}╦{'═' * 10}╗")
-        print(f"║{'Iteration':^11}║{'Model Added':^32}║{'Weight':^10}║{'Score':^15}║{'Improvement':^15}║{'Time (s)':^10}║")
-        print(f"╠{'═' * 11}╬{'═' * 32}╬{'═' * 10}╬{'═' * 15}╬{'═' * 15}╬{'═' * 10}╣")
+        self.model_width = max_model_length
+        self.iter_width = 4
+        self.weight_width = 8
+        self.score_width = 10
+        self.improvement_width = 12
+        self.time_width = 8
+
+        self.total_width = 3
+        self.total_width += self.iter_width + 3
+        self.total_width += self.model_width + 3
+        self.total_width += self.weight_width + 3
+        self.total_width += self.score_width + 5
+        self.total_width += self.improvement_width + 5
+        self.total_width += self.time_width
+
+        print(f"   {'Iter':>{self.iter_width}}   {'Model':<{self.model_width}}   {'Weight':>{self.weight_width}}   {'Score':>{self.score_width}}     {'Improvement':>{self.improvement_width}}     {'Time':>{self.time_width}}")
+        print(f"   {'─' * (self.total_width - 3)}")
 
     def _compute_score(
         self,
@@ -264,40 +273,39 @@ class Climber(ABC):
         if not self.verbose:
             return
 
-        print(f"╚{'═' * 11}╩{'═' * 32}╩{'═' * 10}╩{'═' * 15}╩{'═' * 15}╩{'═' * 10}╝")
-
-        table_width = 100
-        print(f"\n\n╔{'═' * (table_width-2)}╗")
-        print(f"║{'Results':^{table_width-2}}║")
-        print(f"╚{'═' * (table_width-2)}╝")
+        print(f"\n\n{COLORS.BOLD}{COLORS.BLUE}Results{COLORS.END}\n")
 
         summary_info = [
-            ("Number of models in ensemble", f"{len(self.history)}")
+            ("Number of models in ensemble:", f"{len(self.history)}")
         ]
 
         if len(self.history) > 1:
             improvement = abs(self.history["score"].iloc[-1] - self.history["score"].iloc[0])
             improvement_pct = improvement / abs(self.history["score"].iloc[0]) * 100 if self.history["score"].iloc[0] != 0 else 0
             improvement_sign = "+" if improvement > 0 else ""
+            improvement_str = f"{improvement_sign}{improvement:.{self._score_decimal_places}f} ({improvement_sign}{improvement_pct:.2f}%)"
+            
+            if improvement > 0:
+                improvement_str = f"{COLORS.GREEN}{improvement_str}{COLORS.END}"
+            elif improvement < 0:
+                improvement_str = f"{COLORS.RED}{improvement_str}{COLORS.END}"
+                
             summary_info.append((
-                "Overall improvement",
-                f"{improvement_sign}{improvement:.{self._score_decimal_places}f} ({improvement_sign}{improvement_pct:.2f}%)"
+                "Overall improvement:",
+                improvement_str
             ))
 
         total_time = time.time() - self._global_timer
         iteration_times = self.history["time"].values
         summary_info.extend([
-            ("Total time", f"{total_time:.2f} seconds"),
-            ("Average iteration time", f"{sum(iteration_times) / len(iteration_times):.2f} seconds"),
-            ("Final score", f"{self.best_score:.{self._score_decimal_places}f}")
+            ("Total time:", f"{total_time:.2f} seconds"),
+            ("Average iteration time:", f"{sum(iteration_times) / len(iteration_times):.2f} seconds"),
+            ("Final score:", f"{self.best_score:.{self._score_decimal_places}f}")
         ])
 
+        longest_label = max(len(label) for label, _ in summary_info) + 5
         for label, value in summary_info:
-            label_text = f" {label}"
-            value_text = str(value)
-            available_width = table_width - 2 - len(label_text) - 1
-            dots = "." * (available_width - len(value_text))
-            print(f"{label_text} {dots} {value_text}")
+            print(f"   {label:<{longest_label}} {value}")
 
 
 class ClimberCV(Climber):
@@ -354,7 +362,8 @@ class ClimberCV(Climber):
             }])
 
             if self.verbose:
-                print(f"║{fold_idx:^6}║{iteration:^7}║{first_model:^33}║{coefs[0]:^10.{self._weight_decimal_places}f}║{initial_train_score:^13.{self._score_decimal_places}f}║{initial_val_score:^13.{self._score_decimal_places}f}║{'-':^10}║")
+                color = COLORS.GREEN if coefs[0] >= 0 else COLORS.RED
+                print(f"   {color}{fold_idx:>{self.fold_width}}   {iteration:>{self.iter_width}}   {first_model:<{self.model_width}}   {coefs[0]:>{self.weight_width}.{self._weight_decimal_places}f}   {initial_train_score:>{self.score_width}.{self._score_decimal_places}f}   {initial_val_score:>{self.score_width}.{self._score_decimal_places}f}   {'-':>{self.time_width}}{COLORS.END}")
 
             while not stop_climbing and remaining_train.shape[1] > 0:
                 iteration += 1
@@ -390,7 +399,8 @@ class ClimberCV(Climber):
                     remaining_val = remaining_val.drop(best_model, axis=1)
 
                     if self.verbose:
-                        print(f"║{fold_idx:^6}║{iteration:^7}║{best_model:^33}║{best_weight:^10.{self._weight_decimal_places}f}║{potential_best_train_score:^13.{self._score_decimal_places}f}║{potential_best_val_score:^13.{self._score_decimal_places}f}║{iter_time:^10.2f}║")
+                        color = COLORS.GREEN if best_weight >= 0 else COLORS.RED
+                        print(f"   {color}{fold_idx:>{self.fold_width}}   {iteration:>{self.iter_width}}   {best_model:<{self.model_width}}   {best_weight:>{self.weight_width}.{self._weight_decimal_places}f}   {potential_best_train_score:>{self.score_width}.{self._score_decimal_places}f}   {potential_best_val_score:>{self.score_width}.{self._score_decimal_places}f}   {iter_time:>{self.time_width}.2f}{COLORS.END}")
 
                     history = pd.concat([
                         history,
@@ -417,7 +427,7 @@ class ClimberCV(Climber):
             self.fold_scores.append(self.eval_metric(y_val, oof_preds[val_index]))
             
             if self.verbose and fold_idx != self.cv.n_splits - 1:
-                print(f"║{'-' * 6}║{'-' * 7}║{'-' * 33}║{'-' * 10}║{'-' * 13}║{'-' * 13}║{'-' * 10}║")
+                print(f"   {'─' * (self.total_width - 3)}")
                 
         self.history = pd.concat(histories)
         self.best_oof_preds = oof_preds
@@ -442,74 +452,91 @@ class ClimberCV(Climber):
         if not self.verbose:
             return
 
-        table_width = 100
-        print(f"╔{'═' * (table_width-2)}╗")
-        print(f"║{'Configuration':^{table_width-2}}║")
-        print(f"╚{'═' * (table_width-2)}╝")
-
         info = [
-            ("Metric", self.eval_metric.__name__),
-            ("Objective", self.objective),
-            ("Precision", self.precision),
-            ("Allow negative weights", self.allow_negative_weights),
-            ("Starting model", self.starting_model),
-            ("Number of parallel jobs", self.n_jobs),
-            ("Number of models", len(model_scores)),
-            ("Number of folds", self.cv.n_splits)
+            ("Metric:", self.eval_metric.__name__),
+            ("Objective:", self.objective),
+            ("Precision:", self.precision),
+            ("Allow negative weights:", self.allow_negative_weights),
+            ("Starting model:", self.starting_model),
+            ("Number of parallel jobs:", self.n_jobs),
+            ("Number of models:", len(model_scores)),
+            ("Number of folds:", self.cv.n_splits)
         ]
-
+        
+        print(f"{COLORS.BOLD}{COLORS.BLUE}Configuration{COLORS.END}\n")
+        longest_label = max(len(label) for label, _ in info) + 5
         for label, value in info:
-            label_text = f" {label}"
-            value_text = str(value)
-            available_width = table_width - 2 - len(label_text) - 1
-            dots = "." * (available_width - len(value_text))
-            print(f"{label_text} {dots} {value_text}")
+            print(f"   {label:<{longest_label}} {value}")
 
-        print(f"╔{'═' * 32}╦{'═' * 10}╦{'═' * 54}╗")
-        print(f"║{'Model':^32}║{'Score':^10}║{'Performance Bar':^54}║")
-        print(f"╠{'═' * 32}╬{'═' * 10}╬{'═' * 54}╣")
-
+        print(f"\n\n{COLORS.BOLD}{COLORS.BLUE}Models{COLORS.END}\n")
+        max_model_length = max(len(model) for model in model_scores.keys())
+        
+        best_model = max(model_scores.items(), key=lambda x: x[1] if self.objective == "maximize" else -x[1])[0]
         for line in create_cli_bar_chart(model_scores, self.objective, self._score_decimal_places):
             parts = line.split(' | ')
             if len(parts) == 3:
                 model, score, bar = parts
-                bar_padded = bar + ' ' * (54 - len(bar))
-                print(f"║{model:^32}║{score:^10}║{bar_padded}║")
+                if model == best_model:
+                    print(f"   {COLORS.GREEN}{model:<{max_model_length}} {score:>10} {bar} (best){COLORS.END}")
+                else:
+                    print(f"   {model:<{max_model_length}} {score:>10} {bar}")
 
-        print(f"╚{'═' * 32}╩{'═' * 10}╩{'═' * 54}╝")
+        print(f"\n\n{COLORS.BOLD}{COLORS.BLUE}Running Hill Climbing{COLORS.END}\n")
 
-        print(f"\n\n╔{'═' * (table_width-2)}╗")
-        print(f"║{'Running Hill Climbing':^{table_width-2}}║")
-        print(f"╚{'═' * (table_width-2)}╝")
+        self.model_width = max_model_length
+        self.iter_width = 4
+        self.weight_width = 8
+        self.score_width = 10
+        self.improvement_width = 12
+        self.time_width = 8
+        self.fold_width = 4
 
-        print(f"╔{'═' * 6}╦{'═' * 7}╦{'═' * 33}╦{'═' * 10}╦{'═' * 13}╦{'═' * 13}╦{'═' * 10}╗")
-        print(f"║{'Fold':^6}║{'Itr':^7}║{'Model Added':^33}║{'Weight':^10}║{' Train score':^13}║{'Val score':^13}║{'Time (s)':^10}║")
-        print(f"╠{'═' * 6}╬{'═' * 7}╬{'═' * 33}╬{'═' * 10}╬{'═' * 13}╬{'═' * 13}╬{'═' * 10}╣")
+        self.total_width = 3
+        self.total_width += self.fold_width + 3
+        self.total_width += self.iter_width + 3
+        self.total_width += self.model_width + 3
+        self.total_width += self.weight_width + 3
+        self.total_width += self.score_width + 3
+        self.total_width += self.score_width + 3
+        self.total_width += self.time_width
+
+        print(f"   {'Fold':>{self.fold_width}}   {'Iter':>{self.iter_width}}   {'Model':<{self.model_width}}   {'Weight':>{self.weight_width}}   {'Train':>{self.score_width}}   {'Val':>{self.score_width}}   {'Time':>{self.time_width}}")
+        print(f"   {'─' * (self.total_width - 3)}")
 
     def _print_final_results(self) -> None:
         if not self.verbose:
             return
 
-        print(f"╚{'═' * 6}╩{'═' * 7}╩{'═' * 33}╩{'═' * 10}╩{'═' * 13}╩{'═' * 13}╩{'═' * 10}╝")
+        print(f"\n\n{COLORS.BOLD}{COLORS.BLUE}Results{COLORS.END}\n")
 
-        table_width = 100
-        print(f"\n\n╔{'═' * (table_width-2)}╗")
-        print(f"║{'Results':^{table_width-2}}║")
-        print(f"╚{'═' * (table_width-2)}╝")
+        summary_info = [
+            ("Number of models in ensemble:", f"{len(self.history['model'].unique())}")
+        ]
 
-        summary_info = []
+        if len(self.history) > 1:
+            improvement = abs(self.history["val_score"].iloc[-1] - self.history["val_score"].iloc[0])
+            improvement_pct = improvement / abs(self.history["val_score"].iloc[0]) * 100 if self.history["val_score"].iloc[0] != 0 else 0
+            improvement_sign = "+" if improvement > 0 else ""
+            improvement_str = f"{improvement_sign}{improvement:.{self._score_decimal_places}f} ({improvement_sign}{improvement_pct:.2f}%)"
+            
+            if improvement > 0:
+                improvement_str = f"{COLORS.GREEN}{improvement_str}{COLORS.END}"
+            elif improvement < 0:
+                improvement_str = f"{COLORS.RED}{improvement_str}{COLORS.END}"
+                
+            summary_info.append((
+                "Overall improvement:",
+                improvement_str
+            ))
 
         total_time = time.time() - self._global_timer
         iteration_times = self.history["time"].values
         summary_info.extend([
-            ("Total time", f"{total_time:.2f} seconds"),
-            ("Average iteration time", f"{sum(iteration_times) / len(iteration_times):.2f} seconds"),
-            ("Final score", f"{self.best_score:.{self._score_decimal_places}f}")
+            ("Total time:", f"{total_time:.2f} seconds"),
+            ("Average iteration time:", f"{sum(iteration_times) / len(iteration_times):.2f} seconds"),
+            ("Final score:", f"{self.best_score:.{self._score_decimal_places}f}")
         ])
 
+        longest_label = max(len(label) for label, _ in summary_info) + 5
         for label, value in summary_info:
-            label_text = f" {label}"
-            value_text = str(value)
-            available_width = table_width - 2 - len(label_text) - 1
-            dots = "." * (available_width - len(value_text))
-            print(f"{label_text} {dots} {value_text}")
+            print(f"   {label:<{longest_label}} {value}")

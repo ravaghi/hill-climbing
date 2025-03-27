@@ -1,11 +1,18 @@
 from typing import Dict, List
 
+class COLORS:
+    BLUE = '\033[94m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    BOLD = '\033[1m'
+    RED = '\033[91m'
+    END = '\033[0m'
 
 def create_cli_bar_chart(
     model_scores: Dict[str, float],
     objective: str = "maximize",
     score_decimal_places: int = 6,
-    max_bar_length: int = 52
+    max_bar_length: int = 40
 ) -> List[str]:
     sorted_models = sorted(model_scores.items(
     ), key=lambda x: x[1], reverse=(objective == "maximize"))
