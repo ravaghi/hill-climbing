@@ -328,7 +328,7 @@ class ClimberCV(Climber):
         oof_preds = np.zeros(X.shape[0])
         for fold_idx, (train_index, val_index) in enumerate(self.cv.split(X, y)):
             X_train, X_val = X.iloc[train_index], X.iloc[val_index]
-            y_train, y_val = y.iloc[train_index], y.iloc[val_index]
+            y_train, y_val = y[train_index], y[val_index]
 
             val_scores = self._get_individual_model_scores(X_val, y_val)
             first_model = self._get_starting_model(val_scores)
@@ -341,13 +341,14 @@ class ClimberCV(Climber):
             results = [first_model]
             coefs = [1]
 
-            best_train = X_train[first_model].values
-            best_val = X_val[first_model].values
+            best_train = X_train[first_model]
+            best_val = X_val[first_model]
+            
             remaining_train = X_train.drop(first_model, axis=1)
             remaining_val = X_val.drop(first_model, axis=1)
             
-            initial_train_score = self.eval_metric(y_train, best_train)
-            initial_val_score = self.eval_metric(y_val, best_val)
+            initial_train_score = self.eval_metric(y_train, best_train.values)
+            initial_val_score = self.eval_metric(y_val, best_val.values)
 
             iteration = 0
             stop_climbing = False
@@ -369,13 +370,13 @@ class ClimberCV(Climber):
                 iteration += 1
                 start_time_iter = time.time()
                 
-                potential_best_train_score = self.eval_metric(y_train, best_train) if self.objective == "maximize" else -self.eval_metric(y_train, best_train)
-                potential_best_val_score = self.eval_metric(y_val, best_val) if self.objective == "maximize" else -self.eval_metric(y_val, best_val)
+                potential_best_train_score = self.eval_metric(y_train, best_train.values) if self.objective == "maximize" else -self.eval_metric(y_train, best_train.values)
+                potential_best_val_score = self.eval_metric(y_val, best_val.values) if self.objective == "maximize" else -self.eval_metric(y_val, best_val.values)
                 best_model, best_weight = None, None
                 for model in remaining_train.columns:
                     func_partial = partial(
                         self._compute_score,
-                        current_preds=best_train,
+                        current_preds=best_train.values,
                         new_preds=remaining_train[model].values,
                         y_true=y_train
                     )
@@ -384,7 +385,8 @@ class ClimberCV(Climber):
                     for weight, score in all_scores:
                         if score > potential_best_train_score:
                             potential_best_train_score = score
-                            potential_best_val_score = self.eval_metric(y_val, (1 - weight) * best_val + weight * remaining_val[model].values)
+                            potential_best_val_score = self.eval_metric(y_val, (1 - weight) * best_val.values + weight * remaining_val[model].values)
+                            potential_best_val_score = potential_best_val_score if self.objective == "maximize" else -potential_best_val_score
                             best_model, best_weight = model, weight
 
                 iter_time = time.time() - start_time_iter
@@ -400,7 +402,7 @@ class ClimberCV(Climber):
 
                     if self.verbose:
                         color = COLORS.GREEN if best_weight >= 0 else COLORS.RED
-                        print(f"   {color}{fold_idx:>{self.fold_width}}   {iteration:>{self.iter_width}}   {best_model:<{self.model_width}}   {best_weight:>{self.weight_width}.{self._weight_decimal_places}f}   {potential_best_train_score:>{self.score_width}.{self._score_decimal_places}f}   {potential_best_val_score:>{self.score_width}.{self._score_decimal_places}f}   {iter_time:>{self.time_width}.2f}{COLORS.END}")
+                        print(f"   {color}{fold_idx:>{self.fold_width}}   {iteration:>{self.iter_width}}   {best_model:<{self.model_width}}   {best_weight:>{self.weight_width}.{self._weight_decimal_places}f}   {potential_best_train_score if self.objective == 'maximize' else -potential_best_train_score:>{self.score_width}.{self._score_decimal_places}f}   {potential_best_val_score if self.objective == 'maximize' else -potential_best_val_score:>{self.score_width}.{self._score_decimal_places}f}   {iter_time:>{self.time_width}.2f}{COLORS.END}")
 
                     history = pd.concat([
                         history,
@@ -408,7 +410,7 @@ class ClimberCV(Climber):
                             "iteration": iteration,
                             "model": best_model,
                             "train_score": potential_best_train_score if self.objective == "maximize" else -potential_best_train_score,
-                            "val_score": potential_best_val_score,
+                            "val_score": potential_best_val_score if self.objective == "maximize" else -potential_best_val_score,
                             "time": iter_time
                         }])
                     ], ignore_index=True)
