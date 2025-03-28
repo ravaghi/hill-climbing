@@ -46,7 +46,7 @@ class Climber(ABC):
     def fit(self, X: pd.DataFrame, y: pd.Series) -> None:
         self._global_timer = time.time()
 
-        X, y =self._validate_fit_inputs(X, y)
+        X, y = self._validate_fit_inputs(X, y)
         
         weight_range = self._get_weight_range()
         model_scores = self._get_individual_model_scores(X, y)
@@ -61,9 +61,9 @@ class Climber(ABC):
         results = [first_model]
         coefs = [1]
 
-        current_best_oof = X[first_model].values
+        current_best_oof = X[first_model]
         remaining_oof_preds = X.drop(first_model, axis=1)
-        initial_score = self.eval_metric(y, current_best_oof)
+        initial_score = self.eval_metric(y, current_best_oof.values)
 
         iteration = 0
         stop_climbing = False
@@ -87,18 +87,18 @@ class Climber(ABC):
             start_time_iter = time.time()
             iteration += 1
 
-            potential_best_score = self.eval_metric(y, current_best_oof) if self.objective == "maximize" else -self.eval_metric(y, current_best_oof)
+            potential_best_score = self.eval_metric(y, current_best_oof.values) if self.objective == "maximize" else -self.eval_metric(y, current_best_oof.values)
             best_model, best_weight = None, None
 
             for model in remaining_oof_preds.columns:
                 func_partial = partial(
                     self._compute_score,
-                    current_preds=current_best_oof,
+                    current_preds=current_best_oof.values,
                     new_preds=remaining_oof_preds[model].values,
                     y_true=y
                 )
 
-                all_scores = self._parallelize_score_computation(func_partial, weight_range)
+                all_scores = self._parallelize_score_computation(func_partial, list(weight_range))
                 for weight, score in all_scores:
                     if score > potential_best_score:
                         potential_best_score = score
@@ -110,10 +110,10 @@ class Climber(ABC):
             if best_model is not None:
                 results.append(best_model)
                 coefs = [c * (1 - best_weight) for c in coefs] + [best_weight]
-                current_best_oof = (1 - best_weight) * current_best_oof + best_weight * remaining_oof_preds[best_model].values
+                current_best_oof = (1 - best_weight) * current_best_oof + best_weight * remaining_oof_preds[best_model]
                 remaining_oof_preds = remaining_oof_preds.drop(best_model, axis=1)
 
-                current_score = self.eval_metric(y, current_best_oof)
+                current_score = self.eval_metric(y, current_best_oof.values)
                 improvement = abs(current_score - last_score)
                 improvement_str = f"{improvement:.{self._score_decimal_places}f}"
                 if self.verbose:
@@ -166,7 +166,7 @@ class Climber(ABC):
         random.seed(self.random_state)
         np.random.seed(self.random_state)
 
-    def _validate_fit_inputs(self, X: pd.DataFrame, y: Union[pd.Series, np.ndarray]) -> Tuple[pd.DataFrame, pd.Series]:
+    def _validate_fit_inputs(self, X: pd.DataFrame, y: Union[pd.Series, np.ndarray]) -> Tuple[pd.DataFrame, np.ndarray]:
         if not isinstance(X, pd.DataFrame):
             raise ValueError("X must be a pandas DataFrame")
         if not isinstance(y, (pd.Series, np.ndarray)):
@@ -176,15 +176,15 @@ class Climber(ABC):
         if X.shape[1] == 0:
             raise ValueError("X must have at least one column")
         
-        if isinstance(y, np.ndarray):
-            y = pd.Series(y)
+        if isinstance(y, pd.Series):
+            y = y.values
             
         return X, y
         
     def _get_weight_range(self) -> np.ndarray:
         return np.arange(-0.5, 0.51, self.precision) if self.allow_negative_weights else np.arange(self.precision, 0.51, self.precision)
 
-    def _get_individual_model_scores(self, X: pd.DataFrame, y: pd.Series) -> Dict[str, float]:
+    def _get_individual_model_scores(self, X: pd.DataFrame, y: np.ndarray) -> Dict[str, float]:
         return {
             model: self.eval_metric(y, X[model].values)
             for model in X.columns
