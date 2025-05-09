@@ -54,18 +54,3 @@ print(f"Best predictions: {climber_cv.best_oof_preds}")
 # Predicting on unseen data
 test_preds = climber_cv.predict(X_test)
 ```
-
-## Parameters
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `objective` | str | - | Either "maximize" or "minimize" the evaluation metric |
-| `eval_metric` | callable | - | The evaluation metric function to optimize |
-| `allow_negative_weights` | bool | False | Whether to allow negative weights. Note that allowing negative weights increases computation time, and in some cases may lead to overfitting |
-| `precision` | float | 0.01 | Controls the step size when trying new weights. Lower values will lead to higher computation times  |
-| `starting_model` | str | "best" | Starting model selection strategy ("best", "random", or one of the column names in `X`) |
-| `score_decimal_places` | int | 3 | Number of decimal places for score display |
-| `random_state` | int | 42 | Random seed for reproducibility |
-| `verbose` | bool | True | Whether to output information during hill climbing |
-| `n_jobs` | int | -1 | Number of parallel jobs (-1 means use all available cores) |
-| `cv` | BaseCrossValidator | - | Cross-validation splitter from scikit-learn. This parameter is only available in `ClimberCV` |
