@@ -39,11 +39,12 @@ class Climber(ABC):
         self.best_score = None
         self.best_oof_preds = None
         self.history = None
+        self._is_fitted = False
 
         self._validate_inputs()
         self._set_random_state()
 
-    def fit(self, X: pd.DataFrame, y: pd.Series) -> None:
+    def fit(self, X: pd.DataFrame, y: pd.Series) -> 'Climber':
         self._global_timer = time.time()
 
         X, y = self._validate_fit_inputs(X, y)
@@ -141,6 +142,8 @@ class Climber(ABC):
         self._is_fitted = True
 
         self._print_final_results()
+
+        return self
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         if not self._is_fitted:
@@ -317,7 +320,7 @@ class ClimberCV(Climber):
         self.cv = cv
         self.fold_scores = []
 
-    def fit(self, X: pd.DataFrame, y: pd.Series) -> None:
+    def fit(self, X: pd.DataFrame, y: pd.Series) -> 'ClimberCV':
         self._global_timer = time.time()
 
         X, y = self._validate_fit_inputs(X, y)
@@ -441,6 +444,8 @@ class ClimberCV(Climber):
 
         self._print_final_results()
         
+        return self
+
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         if not self._is_fitted:
             raise ValueError("Model must be fit before making predictions")
