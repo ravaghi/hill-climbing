@@ -265,6 +265,9 @@ class Climber(ABC):
         func: Callable,
         weight_range: np.ndarray
     ) -> List[Tuple[float, float]]:
+        if self.n_jobs == 1:
+            return [func(weight) for weight in weight_range]
+
         num_cores = min(self.n_jobs, len(weight_range))
         with Pool(num_cores) as pool:
             return pool.map(func, weight_range)
