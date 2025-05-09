@@ -102,9 +102,9 @@ class Climber(ABC):
         self.history = pd.DataFrame([{
             "iteration": iteration,
             "model": first_model,
-            "score": initial_score,
-            "improvement": initial_score,
-            "time": time.time() - self._global_timer
+            "score": float(initial_score),
+            "improvement": float(initial_score),
+            "time": float(time.time() - self._global_timer)
         }])
 
         if self.verbose:
@@ -179,9 +179,9 @@ class Climber(ABC):
                     pd.DataFrame([{
                         "iteration": iteration,
                         "model": best_model,
-                        "score": current_score,
-                        "improvement": improvement,
-                        "time": iter_time
+                        "score": float(current_score),
+                        "improvement": float(improvement),
+                        "time": float(iter_time)
                     }])
                 ], ignore_index=True)
             else:
@@ -551,9 +551,9 @@ class ClimberCV(Climber):
             history = pd.DataFrame([{
                 "iteration": iteration,
                 "model": first_model,
-                "train_score": initial_train_score,
-                "val_score": initial_val_score,
-                "time": time.time() - self._global_timer
+                "train_score": float(initial_train_score),
+                "val_score": float(initial_val_score),
+                "time": float(time.time() - self._global_timer)
             }])
 
             if self.verbose:
@@ -644,9 +644,9 @@ class ClimberCV(Climber):
                         pd.DataFrame([{
                             "iteration": iteration,
                             "model": best_model,
-                            "train_score": train_score,
-                            "val_score": val_score,
-                            "time": iter_time
+                            "train_score": float(train_score),
+                            "val_score": float(val_score),
+                            "time": float(iter_time)
                         }])
                     ], ignore_index=True)
 
@@ -667,8 +667,7 @@ class ClimberCV(Climber):
                 for model, weight in zip(history["model"], history["coef"]):
                     oof_preds[val_index] += weight * X_val[model].values
 
-            self.fold_scores.append(
-                self.eval_metric(y_val, oof_preds[val_index]))
+            self.fold_scores.append(float(self.eval_metric(y_val, oof_preds[val_index])))
 
             if self.verbose and fold_idx != self.cv.n_splits - 1:
                 print(f"   {'─' * (self.total_width - 3)}")
@@ -680,7 +679,7 @@ class ClimberCV(Climber):
         else:
             self.best_oof_preds = oof_preds
 
-        self.best_score = self.eval_metric(y, oof_preds)
+        self.best_score = float(self.eval_metric(y, oof_preds))
         self._is_fitted = True
 
         self._print_final_results()
