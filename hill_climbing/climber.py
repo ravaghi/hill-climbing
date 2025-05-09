@@ -188,8 +188,12 @@ class Climber(ABC):
                 stop_climbing = True
                 
         self.history["coef"] = coefs
+        self.history["score"] = self.history["score"].astype(float)
+        self.history["improvement"] = self.history["improvement"].astype(float)
+        self.history["time"] = self.history["time"].astype(float)
+        self.history["coef"] = self.history["coef"].astype(float)
 
-        self.best_score = last_score
+        self.best_score = last_score.item() if self.use_gpu else last_score
 
         if self.use_gpu:
             self.best_oof_preds = cp.asnumpy(current_best_oof)
@@ -667,7 +671,9 @@ class ClimberCV(Climber):
                 for model, weight in zip(history["model"], history["coef"]):
                     oof_preds[val_index] += weight * X_val[model].values
 
-            self.fold_scores.append(float(self.eval_metric(y_val, oof_preds[val_index])))
+            fold_score = float(self.eval_metric(y_val, oof_preds[val_index]))
+            fold_score = fold_score.item() if self.use_gpu else fold_score
+            self.fold_scores.append(fold_score)
 
             if self.verbose and fold_idx != self.cv.n_splits - 1:
                 print(f"   {'─' * (self.total_width - 3)}")
@@ -678,8 +684,14 @@ class ClimberCV(Climber):
             self.best_oof_preds = cp.asnumpy(oof_preds)
         else:
             self.best_oof_preds = oof_preds
+            
+        self.history["score"] = self.history["score"].astype(float)
+        self.history["improvement"] = self.history["improvement"].astype(float)
+        self.history["time"] = self.history["time"].astype(float)
+        self.history["coef"] = self.history["coef"].astype(float)
 
         self.best_score = float(self.eval_metric(y, oof_preds))
+        self.best_score = self.best_score.item() if self.use_gpu else self.best_score
         self._is_fitted = True
 
         self._print_final_results()
