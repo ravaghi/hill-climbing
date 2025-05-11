@@ -671,7 +671,7 @@ class ClimberCV(Climber):
                 for model, weight in zip(history["model"], history["coef"]):
                     oof_preds[val_index] += weight * X_val[model].values
 
-            fold_score = float(self.eval_metric(y_val, oof_preds[val_index]))
+            fold_score = self.eval_metric(y_val, oof_preds[val_index])
             fold_score = fold_score.item() if self.use_gpu else fold_score
             self.fold_scores.append(fold_score)
 
@@ -685,16 +685,18 @@ class ClimberCV(Climber):
         else:
             self.best_oof_preds = oof_preds
             
-        self.history["score"] = self.history["score"].astype(float)
-        self.history["improvement"] = self.history["improvement"].astype(float)
+        self.history["train_score"] = self.history["train_score"].astype(float)
+        self.history["val_score"] = self.history["val_score"].astype(float)
         self.history["time"] = self.history["time"].astype(float)
         self.history["coef"] = self.history["coef"].astype(float)
 
-        self.best_score = float(self.eval_metric(y, oof_preds))
+        self.best_score = self.eval_metric(y, oof_preds)
         self.best_score = self.best_score.item() if self.use_gpu else self.best_score
         self._is_fitted = True
 
         self._print_final_results()
+        
+        return self
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         if not self._is_fitted:
