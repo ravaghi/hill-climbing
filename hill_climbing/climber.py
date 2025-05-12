@@ -1,13 +1,15 @@
 from sklearn.model_selection import BaseCrossValidator
-from typing import Callable, Dict, List, Tuple, Union
 from multiprocessing import Pool, cpu_count
 from functools import partial
+from typing import Callable
 from abc import ABC
 import pandas as pd
 import numpy as np
 import random
 import time
 import warnings
+
+warnings.filterwarnings("ignore")
 
 try:
     import cupy as cp
@@ -59,7 +61,7 @@ class Climber(ABC):
         self._validate_inputs()
         self._set_random_state()
 
-    def fit(self, X: pd.DataFrame, y: pd.Series) -> 'Climber':
+    def fit(self, X, y):
         self._global_timer = time.time()
 
         X, y = self._validate_fit_inputs(X, y)
@@ -206,7 +208,7 @@ class Climber(ABC):
 
         return self
 
-    def predict(self, X: pd.DataFrame) -> np.ndarray:
+    def predict(self, X):
         if not self._is_fitted:
             raise ValueError("Model must be fit before making predictions")
 
@@ -273,7 +275,7 @@ class Climber(ABC):
                 return cp.add(cp.multiply(weight_a, a), cp.multiply(weight_b, b))
         return weight_a * a + weight_b * b
 
-    def _validate_inputs(self) -> None:
+    def _validate_inputs(self):
         if self.objective not in ["maximize", "minimize"]:
             raise ValueError("objective must be either 'maximize' or 'minimize'")
         
@@ -283,13 +285,13 @@ class Climber(ABC):
         if self.precision <= 0:
             raise ValueError("precision must be greater than 0")
 
-    def _set_random_state(self) -> None:
+    def _set_random_state(self):
         random.seed(self.random_state)
         np.random.seed(self.random_state)
         if self.use_gpu:
             cp.random.seed(self.random_state)
 
-    def _validate_fit_inputs(self, X: pd.DataFrame, y: Union[pd.Series, np.ndarray]) -> Tuple[pd.DataFrame, np.ndarray]:
+    def _validate_fit_inputs(self, X, y):
         if not isinstance(X, pd.DataFrame):
             raise ValueError("X must be a pandas DataFrame")
         if not isinstance(y, (pd.Series, np.ndarray)):
@@ -304,7 +306,7 @@ class Climber(ABC):
             
         return X, y
         
-    def _get_weight_range(self) -> Union[np.ndarray, cp.ndarray]:
+    def _get_weight_range(self):
         weight_range = np.arange(-0.5, 0.51, self.precision) if self.allow_negative_weights else np.arange(
             self.precision, 0.51, self.precision)
 
@@ -313,20 +315,20 @@ class Climber(ABC):
 
         return weight_range
 
-    def _get_individual_model_scores(self, X: Union[pd.DataFrame, cudf.DataFrame], y: Union[pd.Series, np.ndarray, cp.ndarray]) -> Dict[str, float]:
+    def _get_individual_model_scores(self, X, y):
         return {
             model: self.eval_metric(y, X[model])
             for model in X.columns
         }
 
-    def _get_starting_model(self, model_scores: Dict[str, float]) -> str:
+    def _get_starting_model(self, model_scores):
         if self.starting_model == "best":
             return max(model_scores.items(), key=lambda x: x[1] if self.objective == "maximize" else -x[1])[0]
         elif self.starting_model == "random":
             return random.choice(list(model_scores.keys()))
         return self.starting_model
         
-    def _print_header(self, model_scores: Dict[str, float]) -> None:
+    def _print_header(self, model_scores):
         if not self.verbose:
             return
 
@@ -379,23 +381,13 @@ class Climber(ABC):
         print(f"   {'Iter':>{self.iter_width}}   {'Model':<{self.model_width}}   {'Weight':>{self.weight_width}}   {'Score':>{self.score_width}}     {'Improvement':>{self.improvement_width}}     {'Time':>{self.time_width}}")
         print(f"   {'─' * (self.total_width - 3)}")
 
-    def _compute_score(
-        self,
-        weight: float,
-        current_preds: np.ndarray,
-        new_preds: np.ndarray,
-        y_true: np.ndarray
-    ) -> Tuple[float, float]:
+    def _compute_score(self, weight, current_preds, new_preds, y_true):
         ensemble_preds = (1 - weight) * current_preds + weight * new_preds
         score = self.eval_metric(y_true, ensemble_preds)
 
         return (weight, score) if self.objective == "maximize" else (weight, -score)
 
-    def _parallelize_score_computation(
-        self,
-        func: Callable,
-        weight_range: np.ndarray
-    ) -> List[Tuple[float, float]]:
+    def _parallelize_score_computation(self, func, weight_range):
         if self.n_jobs == 1:
             if self.use_gpu and isinstance(weight_range, cp.ndarray):
                 weight_range = cp.asnumpy(weight_range)
@@ -408,7 +400,7 @@ class Climber(ABC):
         with Pool(num_cores) as pool:
             return pool.map(func, weight_range)
 
-    def _print_final_results(self) -> None:
+    def _print_final_results(self):
         if not self.verbose:
             return
 
@@ -500,7 +492,7 @@ class ClimberCV(Climber):
         self.cv = cv
         self.fold_scores = []
 
-    def fit(self, X: pd.DataFrame, y: pd.Series) -> None:
+    def fit(self, X, y):
         self._global_timer = time.time()
 
         X, y = self._validate_fit_inputs(X, y)
@@ -698,7 +690,7 @@ class ClimberCV(Climber):
         
         return self
 
-    def predict(self, X: pd.DataFrame) -> np.ndarray:
+    def predict(self, X):
         if not self._is_fitted:
             raise ValueError("Model must be fit before making predictions")
 
@@ -732,7 +724,7 @@ class ClimberCV(Climber):
             preds += fold_preds
         return preds / self.cv.n_splits
 
-    def _print_header(self, model_scores: Dict[str, float]) -> None:
+    def _print_header(self, model_scores):
         if not self.verbose:
             return
 
@@ -788,7 +780,7 @@ class ClimberCV(Climber):
         print(f"   {'Fold':>{self.fold_width}}   {'Iter':>{self.iter_width}}   {'Model':<{self.model_width}}   {'Weight':>{self.weight_width}}   {'Train':>{self.score_width}}   {'Val':>{self.score_width}}   {'Time':>{self.time_width}}")
         print(f"   {'─' * (self.total_width - 3)}")
 
-    def _print_final_results(self) -> None:
+    def _print_final_results(self):
         if not self.verbose:
             return
 
