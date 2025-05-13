@@ -15,7 +15,7 @@ try:
     import cupy as cp
     import cudf
     HAS_GPU = True
-except ImportError:
+except:
     HAS_GPU = False
 
 from .utils import create_cli_bar_chart, COLORS
