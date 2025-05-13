@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hill-climbing"
-version = "0.1.7"
+version = "0.1.8"
 description = "A python package for ensembling machine learning predictions using hill climbing optimization"
 readme = "README.md"
 
