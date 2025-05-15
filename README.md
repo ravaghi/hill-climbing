@@ -1,5 +1,7 @@
 # Hill Climbing
 
+![PyPI - Version][1] ![Pepy Total Downloads][2] ![GitHub License][3]
+
 Hill climbing is a mathematical optimization algorithm that belongs to the family of local search techniques. It is commonly used to iteratively improve a solution based on a cost or objective function. This package provides a simple implementation of the hill climbing algorithm and is useful for efficiently blending predictions from multiple machine learning models. The goal is to achieve an ensemble score that is better than that of any single model in the ensemble.
 
 ## How it works
@@ -54,3 +56,7 @@ print(f"Best predictions: {climber_cv.best_oof_preds}")
 # Predicting on unseen data
 test_preds = climber_cv.predict(X_test)
 ```
+
+[1]: https://img.shields.io/pypi/v/hill-climbing
+[2]: https://img.shields.io/pepy/dt/hill-climbing
+[3]: https://img.shields.io/github/license/ravaghi/hill-climbing
